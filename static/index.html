@@ -2,27 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title></title>
+    <title>Gotail - tail in your browser</title>
     <script type="text/javascript">
-        var socket = new WebSocket("ws://localhost:8080/socket");
-        socket.onopen = function() {
-            document.getElementById("status").innerHTML = "CONNECTED!";
-        }
-        socket.onclose = function() {
-            document.getElementById("status").innerHTML = "CLOSED";
-        }
+        var loc = window.location;
+        var socket = new WebSocket("wss://" + loc.host + "/socket");
         socket.onmessage = function(msg) {
-            console.log(msg);
             document.getElementById("content").innerHTML += "<p>" + msg.data + "</p>";
         }
-
     </script>
 </head>
 <body>
-<span id="status">Setting up</span>
-<div id="content">
 
-</div>
-xxxx
+<div id="content"></div>
 </body>
 </html>
