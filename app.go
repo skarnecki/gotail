@@ -5,37 +5,12 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
-	"os"
-	"time"
 
 	auth "github.com/abbot/go-http-auth"
 	"github.com/alecthomas/kingpin"
-	"github.com/hpcloud/tail"
+	"github.com/skarnecki/gotail/pump"
 	"golang.org/x/net/websocket"
 )
-
-//WebHandler handles http/ws
-type WebHandler struct {
-	Filechannel chan string
-	Buffer      []string
-	BufferSize  int
-}
-
-func (wh *WebHandler) websocketPump(ws *websocket.Conn) {
-	for _, line := range wh.Buffer {
-		ws.Write([]byte(line))
-	}
-	for {
-		select {
-		case msg := <-wh.Filechannel:
-			ws.Write([]byte(msg))
-			wh.Buffer = append(wh.Buffer, msg)
-			wh.Buffer = wh.Buffer[len(wh.Buffer)-wh.BufferSize:]
-		default:
-			time.Sleep(10 * time.Millisecond)
-		}
-	}
-}
 
 //StaticHandler static content handler
 type StaticHandler struct {
@@ -71,21 +46,14 @@ var (
 func main() {
 	kingpin.Parse()
 	filechannel := make(chan string, 100)
-	go func(cs chan string) {
-		// file, _ := tail.TailFile(*filename, tail.Config{Follow: true, Location: &tail.SeekInfo{Offset: -1000, Whence: os.SEEK_END}})
-		file, _ := tail.TailFile(*filename, tail.Config{Follow: true, Location: &tail.SeekInfo{Offset: 0, Whence: os.SEEK_CUR}})
-		for line := range file.Lines {
-			cs <- string(line.Text)
-		}
-	}(filechannel)
+	go pump.TailFile(filechannel, *filename)
 
 	http.Handle("/", initContentHandler(*user, *password))
-
-	handler := WebHandler{Filechannel: filechannel, Buffer: make([]string, *number), BufferSize: *number}
-	http.Handle("/socket", websocket.Handler(handler.websocketPump))
+	handler := pump.WebHandler{Filechannel: filechannel, Buffer: make([]string, *number), BufferSize: *number}
+	http.Handle("/socket", websocket.Handler(handler.Websocket))
 
 	address := fmt.Sprintf("%s:%d", *host, *port)
-	fmt.Printf("Listening on %s", address)
+	fmt.Printf("Listening on %s\n", address)
 	if *cert != "" && *key != "" {
 		http.ListenAndServeTLS(address, *cert, *key, nil)
 	}
