@@ -5,6 +5,7 @@
     <title>Gotail - tail in your browser</title>
     <script type="text/javascript">
         var loc = window.location;
+        //TODO ws/wss
         var socket = new WebSocket("wss://" + loc.host + "/socket");
         socket.onmessage = function(msg) {
             document.getElementById("content").innerHTML += "<p>" + msg.data + "</p>";

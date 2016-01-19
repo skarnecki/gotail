@@ -3,13 +3,13 @@ package main
 import (
 	"crypto/sha1"
 	"encoding/base64"
-	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"time"
 
 	auth "github.com/abbot/go-http-auth"
+	"github.com/alecthomas/kingpin"
 	"github.com/hpcloud/tail"
 	"golang.org/x/net/websocket"
 )
@@ -57,25 +57,19 @@ func (sh *StaticHandler) handle(w http.ResponseWriter, r *auth.AuthenticatedRequ
 	http.FileServer(http.Dir("./static")).ServeHTTP(w, &r.Request)
 }
 
+var (
+	filename = kingpin.Arg("filename", "Path to tailed file.").Required().ExistingFile()
+	number   = kingpin.Flag("number", "Starting lines number.").Default("10").Int()
+	host     = kingpin.Flag("host", "Listening host, default 0.0.0.0").Default("0.0.0.0").IP()
+	port     = kingpin.Flag("port", "listening port, default 9001").Default("9001").Int()
+	cert     = kingpin.Flag("cert", "path to cert file (HTTPS)").ExistingFile()
+	key      = kingpin.Flag("key", "path to key file (HTTPS)").ExistingFile()
+	user     = kingpin.Flag("user", "Basic auth user").String()
+	password = kingpin.Flag("password", "Basic auth password").String()
+)
+
 func main() {
-	filename := flag.String("filename", "", "path to tailed file")
-	number := flag.Int("number", 10, "starting lines number, default 10")
-	host := flag.String("host", "0.0.0.0", "listening host, default 0.0.0.0")
-	port := flag.Int("port", 9001, "listening port, default 9001")
-	cert := flag.String("cert", "", "path to cert file (HTTPS)")
-	key := flag.String("key", "", "path to key file (HTTPS)")
-
-	flag.Parse()
-	if *filename == "" {
-		fmt.Println("Specify tailed file with --filename")
-		return
-	}
-
-	if _, err := os.Stat(*filename); os.IsNotExist(err) {
-		fmt.Printf("Can't read file: %s\n", *filename)
-		return
-	}
-
+	kingpin.Parse()
 	filechannel := make(chan string, 100)
 	go func(cs chan string) {
 		// file, _ := tail.TailFile(*filename, tail.Config{Follow: true, Location: &tail.SeekInfo{Offset: -1000, Whence: os.SEEK_END}})
@@ -85,9 +79,8 @@ func main() {
 		}
 	}(filechannel)
 
-	staticContentHandler := &StaticHandler{User: "john", Password: "cena"}
-	authWrapper := auth.NewBasicAuthenticator("example.com", staticContentHandler.Secret)
-	http.Handle("/", authWrapper.Wrap(staticContentHandler.handle))
+	http.Handle("/", initContentHandler(*user, *password))
+
 	handler := WebHandler{Filechannel: filechannel, Buffer: make([]string, *number), BufferSize: *number}
 	http.Handle("/socket", websocket.Handler(handler.websocketPump))
 
@@ -97,4 +90,13 @@ func main() {
 		http.ListenAndServeTLS(address, *cert, *key, nil)
 	}
 	http.ListenAndServe(address, nil)
+}
+
+func initContentHandler(user, password string) http.Handler {
+	if user != "" && password != "" {
+		staticContentHandler := &StaticHandler{User: user, Password: password}
+		authWrapper := auth.NewBasicAuthenticator("Gotail", staticContentHandler.Secret)
+		return authWrapper.Wrap(staticContentHandler.handle)
+	}
+	return http.FileServer(http.Dir("./static"))
 }
