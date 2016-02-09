@@ -13,6 +13,24 @@
 <div id="content"></div>
 <script type="text/babel">
 
+class FileContent extends React.Component {
+  render() {
+    const { lines } = this.props
+    return (
+        <ul>
+        {lines.map(function(line, index) {
+          return <li key={`row-${index}`}>{line}</li>;
+        })}
+        </ul>
+
+    )
+  }
+}
+
+FileContent.propTypes = {
+  lines: React.PropTypes.array.isRequired
+}
+
     var loc = window.location;
 
     function counter(state, action) {
@@ -21,7 +39,6 @@
         }
         switch (action.type) {
           case 'APPEND':
-          console.log(state)
           state.lines.push(action.lines)
             return state
           default:
@@ -29,12 +46,11 @@
         }
       }
       var store = Redux.createStore(counter)
-      var content = document.getElementById('content')
 
       function render() {
         ReactDOM.render(
-            <Counter props={store.getState()} />,
-            content
+            <FileContent lines={ store.getState().lines } />,
+            document.getElementById('content')
           )
       }
 
@@ -42,10 +58,11 @@
       store.subscribe(render)
 
     var socket = new WebSocket("{{.WSProtocol}}://" + loc.host + "/socket");
-    socket.onmessage = function(msg) {
-        store.dispatch({ type: 'APPEND', lines: msg.data })
+    socket.onmessage = (msg) => {
+        if (msg.data) {
+            store.dispatch({ type: 'APPEND', lines: msg.data })
+        }
     }
     </script>
 </body>
 </html>
-
