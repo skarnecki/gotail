@@ -1,36 +1,14 @@
 package main
 
 import (
-	"crypto/sha1"
-	"encoding/base64"
 	"fmt"
 	"net/http"
 
-	auth "github.com/abbot/go-http-auth"
 	"github.com/alecthomas/kingpin"
+	"github.com/skarnecki/gotail/frontend"
 	"github.com/skarnecki/gotail/pump"
 	"golang.org/x/net/websocket"
 )
-
-//StaticHandler static content handler
-type StaticHandler struct {
-	User     string
-	Password string
-}
-
-//Secret password validation
-func (sh *StaticHandler) Secret(incomingUser, realm string) string {
-	if incomingUser == sh.User {
-		d := sha1.New()
-		d.Write([]byte(sh.Password))
-		return "{SHA}" + base64.StdEncoding.EncodeToString(d.Sum(nil))
-	}
-	return ""
-}
-
-func (sh *StaticHandler) handle(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
-	http.FileServer(http.Dir("./static")).ServeHTTP(w, &r.Request)
-}
 
 var (
 	filename = kingpin.Arg("filename", "Path to tailed file.").Required().ExistingFile()
@@ -48,7 +26,10 @@ func main() {
 	filechannel := make(chan string, 100)
 	go pump.TailFile(filechannel, *filename)
 
-	http.Handle("/", initContentHandler(*user, *password))
+	//todo forbid basicauth w/o user & pass
+	mainpage := &frontend.MainPage{HTTPSMode: true, BasicAuth: true, UserName: *user, UserPassword: *password}
+	http.Handle("/", mainpage)
+
 	handler := pump.WebHandler{Filechannel: filechannel, Buffer: make([]string, *number), BufferSize: *number}
 	http.Handle("/socket", websocket.Handler(handler.Websocket))
 
@@ -58,13 +39,4 @@ func main() {
 		http.ListenAndServeTLS(address, *cert, *key, nil)
 	}
 	http.ListenAndServe(address, nil)
-}
-
-func initContentHandler(user, password string) http.Handler {
-	if user != "" && password != "" {
-		staticContentHandler := &StaticHandler{User: user, Password: password}
-		authWrapper := auth.NewBasicAuthenticator("Gotail", staticContentHandler.Secret)
-		return authWrapper.Wrap(staticContentHandler.handle)
-	}
-	return http.FileServer(http.Dir("./static"))
 }
