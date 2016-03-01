@@ -7,62 +7,15 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/0.14.7/react-dom.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.23/browser.min.js"></script>
     <script src="https://npmcdn.com/redux@latest/dist/redux.min.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
 </head>
 <body>
 
-<div id="content"></div>
+<div id="content" class="log"></div>
+<script type="text/babel" src="/static/js/app.js"></script>
 <script type="text/babel">
+window.App(new WebSocket("{{.WSProtocol}}://" + window.location.host + "/socket"));
+</script>
 
-class FileContent extends React.Component {
-  render() {
-    const { lines } = this.props
-    return (
-        <ul>
-        {lines.map(function(line, index) {
-          return <li key={`row-${index}`}>{line}</li>;
-        })}
-        </ul>
-
-    )
-  }
-}
-
-FileContent.propTypes = {
-  lines: React.PropTypes.array.isRequired
-}
-
-    var loc = window.location;
-
-    function counter(state, action) {
-        if (typeof state === 'undefined') {
-          return {lines: []}
-        }
-        switch (action.type) {
-          case 'APPEND':
-          state.lines.push(action.lines)
-            return state
-          default:
-            return state
-        }
-      }
-      var store = Redux.createStore(counter)
-
-      function render() {
-        ReactDOM.render(
-            <FileContent lines={ store.getState().lines } />,
-            document.getElementById('content')
-          )
-      }
-
-      render()
-      store.subscribe(render)
-
-    var socket = new WebSocket("{{.WSProtocol}}://" + loc.host + "/socket");
-    socket.onmessage = (msg) => {
-        if (msg.data) {
-            store.dispatch({ type: 'APPEND', lines: msg.data })
-        }
-    }
-    </script>
 </body>
 </html>

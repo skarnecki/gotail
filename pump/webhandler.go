@@ -1,7 +1,6 @@
 package pump
 
 import (
-	"fmt"
 	"time"
 
 	"golang.org/x/net/websocket"
@@ -21,7 +20,6 @@ func (wh *WebHandler) Websocket(ws *websocket.Conn) {
 	for {
 		select {
 		case msg := <-wh.Filechannel:
-			fmt.Printf("new data")
 			ws.Write([]byte(msg))
 			wh.Buffer = append(wh.Buffer, msg)
 			wh.Buffer = wh.Buffer[len(wh.Buffer)-wh.BufferSize:]

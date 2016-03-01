@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/alecthomas/kingpin"
+	"github.com/gorilla/mux"
 	"github.com/skarnecki/gotail/frontend"
 	"github.com/skarnecki/gotail/pump"
 	"golang.org/x/net/websocket"
@@ -27,13 +28,17 @@ func main() {
 	go pump.TailFile(filechannel, *filename)
 
 	//todo forbid basicauth w/o user & pass
-	mainpage := &frontend.MainPage{HTTPSMode: true, BasicAuth: true, UserName: *user, UserPassword: *password}
-	http.Handle("/", mainpage)
+	mainpage := &frontend.MainPage{HTTPSMode: false, BasicAuth: false, UserName: *user, UserPassword: *password}
 
 	handler := pump.WebHandler{Filechannel: filechannel, Buffer: make([]string, *number), BufferSize: *number}
-	http.Handle("/socket", websocket.Handler(handler.Websocket))
-
 	address := fmt.Sprintf("%s:%d", *host, *port)
+
+	r := mux.NewRouter()
+	r.Handle("/", mainpage)
+	r.Handle("/socket", websocket.Handler(handler.Websocket))
+
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
+	http.Handle("/", r)
 	fmt.Printf("Listening on %s\n", address)
 	if *cert != "" && *key != "" {
 		http.ListenAndServeTLS(address, *cert, *key, nil)
