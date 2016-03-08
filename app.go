@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"log"
+
+	"os"
+
 	"github.com/alecthomas/kingpin"
 	"github.com/gorilla/mux"
 	"github.com/skarnecki/gotail/frontend"
@@ -23,12 +27,21 @@ var (
 )
 
 func main() {
+	logger := log.New(os.Stdout, "logger: ", log.Lshortfile)
 	kingpin.Parse()
 	filechannel := make(chan string, 100)
 	go pump.TailFile(filechannel, *filename)
 
-	//todo forbid basicauth w/o user & pass
 	mainpage := &frontend.MainPage{HTTPSMode: false, BasicAuth: false, UserName: *user, UserPassword: *password}
+
+	if *user != "" && *password != "" {
+		mainpage.BasicAuth = true
+	}
+	if *cert != "" && *key != "" {
+		mainpage.HTTPSMode = true
+	}
+	logger.Printf("Basic auth: %t", mainpage.BasicAuth)
+	logger.Printf("HTTPS: %t", mainpage.HTTPSMode)
 
 	handler := pump.WebHandler{Filechannel: filechannel, Buffer: make([]string, *number), BufferSize: *number}
 	address := fmt.Sprintf("%s:%d", *host, *port)
@@ -39,7 +52,7 @@ func main() {
 
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
 	http.Handle("/", r)
-	fmt.Printf("Listening on %s\n", address)
+	logger.Printf("Listening on %s\n", address)
 	if *cert != "" && *key != "" {
 		http.ListenAndServeTLS(address, *cert, *key, nil)
 	}
