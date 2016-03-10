@@ -1,3 +1,5 @@
+//go:generate go-bindata-assetfs static/js
+
 package main
 
 import (
@@ -50,7 +52,7 @@ func main() {
 	r.Handle("/", mainpage)
 	r.Handle("/socket", websocket.Handler(handler.Websocket))
 
-	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("./static"))))
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(assetFS())))
 	http.Handle("/", r)
 	logger.Printf("Listening on %s\n", address)
 	if *cert != "" && *key != "" {

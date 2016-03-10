@@ -1,3 +1,5 @@
+//go:generate go-bindata  -pkg $GOPACKAGE ../static/index.tmpl
+
 package frontend
 
 import (
@@ -39,7 +41,11 @@ func (mp *MainPage) AuthTail(w http.ResponseWriter, r *httpauth.AuthenticatedReq
 }
 
 func (mp *MainPage) Tail(w http.ResponseWriter, r *http.Request) {
-	t, _ := template.ParseFiles("static/index.html")
+	contents, err := Asset("../static/index.tmpl")
+	if err != nil {
+		panic(err)
+	}
+	t, _ := template.New("index").Parse(string(contents))
 	data := &MainPageDetails{Title: "Gotail", WSProtocol: WebsocketProtocol}
 	if mp.HTTPSMode {
 		data.WSProtocol = WebsocketSecureProtocol
