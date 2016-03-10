@@ -1,6 +1,4 @@
 .idea/
 gotail
 vendor/
-bindata_assetfs.go
-frontend/bindata.go
 .gopath
